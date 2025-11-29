@@ -1,0 +1,8 @@
+{
+  "name": "achievers-club",
+  "version": "1.0.0",
+  "description": "Achievers Club Registration",
+  "dependencies": {
+    "razorpay": "^2.9.2"
+  }
+}
