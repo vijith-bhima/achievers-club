@@ -639,7 +639,10 @@
         </div>
     </footer>
 
-   <script>
+ <!-- Razorpay Checkout Script (Required) -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <script>
 
 document.getElementById('registrationForm').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -648,13 +651,11 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
     const email = document.getElementById('email').value;
     const whatsapp = document.getElementById('whatsapp').value;
 
-    // Disable submit button to prevent double submission
     const submitBtn = this.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Processing...';
 
     try {
-        // Create order on server (Netlify Function)
         const response = await fetch('/.netlify/functions/create-order', {
             method: 'POST',
             headers: {
@@ -669,7 +670,6 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
 
         const order = await response.json();
 
-        // Open Razorpay checkout with order_id
         var options = {
             "key": "rzp_test_RkSig1OVbwr7QP",
             "amount": order.amount,
@@ -677,13 +677,10 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
             "name": "Achievers Club",
             "description": "Registration Fee",
             "image": "https://i.ibb.co/S1y8vZ4/achiverclublogo.jpg",
-            "order_id": order.id, // THIS IS THE CRITICAL PART
+            "order_id": order.id,
 
             "handler": function (response) {
-                // Payment successful
                 alert("Payment Successful! Payment ID: " + response.razorpay_payment_id);
-                
-                // Redirect to success page with payment details
                 window.location.href = `success.html?payment_id=${response.razorpay_payment_id}&order_id=${response.razorpay_order_id}`;
             },
 
@@ -699,7 +696,6 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
 
             "modal": {
                 "ondismiss": function() {
-                    // Re-enable button if user closes modal
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Pay Now & Register';
                 }
@@ -707,8 +703,8 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
         };
 
         var rzp1 = new Razorpay(options);
-        
-        rzp1.on('payment.failed', function (response){
+
+        rzp1.on('payment.failed', function(response){
             alert('Payment Failed: ' + response.error.description);
             window.location.href = 'failed.html';
         });
@@ -723,3 +719,6 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
     }
 });
 </script>
+
+</body>
+</html>
