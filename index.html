@@ -639,7 +639,7 @@
         </div>
     </footer>
 
- <!-- Razorpay Checkout Script (Required) -->
+    <!-- Razorpay Checkout Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
     <script>
@@ -654,19 +654,35 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
     submitBtn.disabled = true;
     submitBtn.textContent = 'Processing...';
 
+    console.log('Form submitted:', { name, email, whatsapp });
+
     try {
+        // Create order
+        console.log('Creating order...');
         const response = await fetch('/.netlify/functions/create-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, whatsapp })
         });
 
-        if (!response.ok) throw new Error('Failed to create order');
+        console.log('Response status:', response.status);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Order creation failed:', errorText);
+            throw new Error('Failed to create order: ' + errorText);
+        }
 
         const order = await response.json();
+        console.log('Order created:', order);
+
+        // Check if Razorpay is loaded
+        if (typeof Razorpay === 'undefined') {
+            throw new Error('Razorpay SDK not loaded. Please refresh the page.');
+        }
 
         const options = {
-            "key": "rzp_test_RkSig1OVbwr7QP",
+            "key": "rzp_test_S2SA7dfcExxtRV",
             "amount": order.amount,
             "currency": order.currency,
             "name": "Achievers Club",
@@ -675,8 +691,11 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
             "order_id": order.id,
 
             "handler": async function (paymentResponse) {
+                console.log('Payment successful:', paymentResponse);
+                
+                // Save to database
                 try {
-                    await fetch('/.netlify/functions/save-registration', {
+                    const saveResponse = await fetch('/.netlify/functions/save-registration', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -688,33 +707,52 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
                             failure_reason: null
                         })
                     });
+                    
+                    if (saveResponse.ok) {
+                        console.log('Saved to database');
+                    }
                 } catch (error) {
-                    console.error('Error saving:', error);
+                    console.error('Error saving to database:', error);
                 }
-                window.location.href = `success.html?payment_id=${paymentResponse.razorpay_payment_id}`;
+
+                // Redirect to success page
+                window.location.href = `success.html?payment_id=${paymentResponse.razorpay_payment_id}&order_id=${paymentResponse.razorpay_order_id}`;
             },
 
-            "prefill": { "name": name, "email": email, "contact": whatsapp },
-            "theme": { "color": "#FF6B6B" },
+            "prefill": { 
+                "name": name, 
+                "email": email, 
+                "contact": whatsapp 
+            },
+            
+            "theme": { 
+                "color": "#FF6B6B" 
+            },
 
             "modal": {
                 "ondismiss": function() {
+                    console.log('Payment modal closed');
                     saveFailedAttempt(name, email, whatsapp, order.id, 'Payment modal closed by user');
+                    
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Pay Now & Register';
                 }
             }
         };
 
+        console.log('Opening Razorpay...');
         const rzp1 = new Razorpay(options);
         
         rzp1.on('payment.failed', async function (response) {
+            console.error('Payment failed:', response.error);
+            
             await saveFailedAttempt(
                 name, email, whatsapp,
                 response.error.metadata?.order_id || order.id,
                 response.error.description || 'Payment failed',
                 response.error.metadata?.payment_id || 'N/A'
             );
+            
             alert('Payment Failed: ' + response.error.description);
             window.location.href = `failed.html?reason=${encodeURIComponent(response.error.description)}`;
         });
@@ -722,9 +760,11 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
         rzp1.open();
 
     } catch (error) {
-        console.error('Error:', error);
-        alert('Error creating order. Please try again.');
-        await saveFailedAttempt(name, email, whatsapp, 'N/A', 'Order creation failed');
+        console.error('Error in payment flow:', error);
+        alert('Error: ' + error.message + '\n\nPlease check the console (F12) for details.');
+        
+        await saveFailedAttempt(name, email, whatsapp, 'N/A', 'Order creation failed: ' + error.message);
+        
         submitBtn.disabled = false;
         submitBtn.textContent = 'Pay Now & Register';
     }
@@ -732,7 +772,8 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
 
 async function saveFailedAttempt(name, email, whatsapp, orderId, reason, paymentId = 'N/A') {
     try {
-        await fetch('/.netlify/functions/save-registration', {
+        console.log('Saving failed attempt:', { name, email, reason });
+        const response = await fetch('/.netlify/functions/save-registration', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -744,15 +785,15 @@ async function saveFailedAttempt(name, email, whatsapp, orderId, reason, payment
                 failure_reason: reason
             })
         });
+        
+        if (response.ok) {
+            console.log('Failed attempt saved to database');
+        }
     } catch (error) {
         console.error('Error saving failed attempt:', error);
     }
 }
-</script>
+    </script>
 
 </body>
 </html>
-
-
-
-
