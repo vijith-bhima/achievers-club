@@ -108,6 +108,12 @@
             Don't worry - no charges have been made to your account.
         </p>
 
+        <!-- NEW: Display specific failure reason -->
+        <div class="failure-reason-box" id="failureReasonBox" style="display: none; background: #FFF8E1; border-left: 4px solid #FF9800; border-radius: 10px; padding: 20px; margin: 20px 0; text-align: left;">
+            <h3 style="color: #FF9800; margin-bottom: 10px; font-size: 1.1rem;">⚠️ Failure Reason:</h3>
+            <p id="failureReasonText" style="color: #666; font-size: 1rem; line-height: 1.6;"></p>
+        </div>
+
         <div class="error-reasons">
             <h3>Common Reasons for Payment Failure:</h3>
             <ul>
@@ -130,7 +136,7 @@
 
         <div class="button-group">
             <a href="javascript:history.go(-1)" class="btn btn-primary">Try Again</a>
-            <a href="javascript:history.go(-1)" class="btn btn-secondary">Back to Home</a>
+            <a href="index.html" class="btn btn-secondary">Back to Home</a>
             <a href="tel:+918519984279" class="btn btn-contact">Contact Support</a>
         </div>
 
@@ -143,18 +149,19 @@
             </p>
         </div>
     </div>
+
+    <!-- NEW: Script to display failure reason from URL -->
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const failureReason = urlParams.get('reason');
+        
+        if (failureReason) {
+            const failureBox = document.getElementById('failureReasonBox');
+            const failureText = document.getElementById('failureReasonText');
+            
+            failureBox.style.display = 'block';
+            failureText.textContent = decodeURIComponent(failureReason);
+        }
+    </script>
 </body>
 </html>
-```
-
-## **Key Changes:**
-- Used `javascript:history.go(-1)` instead of file paths
-- This uses browser history to go back, which always works
-- All 3 files MUST be in the same folder
-
-## **Your Folder Structure:**
-```
-your-folder/
-├── index.html
-├── success.html
-└── failed.html
