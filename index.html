@@ -643,7 +643,6 @@
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
     <script>
-
 document.getElementById('registrationForm').addEventListener('submit', async function(e) {
     e.preventDefault();
 
@@ -658,20 +657,16 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
     try {
         const response = await fetch('/.netlify/functions/create-order', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, whatsapp })
         });
 
-        if (!response.ok) {
-            throw new Error('Failed to create order');
-        }
+        if (!response.ok) throw new Error('Failed to create order');
 
         const order = await response.json();
 
-        var options = {
-            "key": "rzp_live_RkkzZeKILBFH54",
+        const options = {
+            "key": "rzp_test_RkSig1OVbwr7QP",
             "amount": order.amount,
             "currency": order.currency,
             "name": "Achievers Club",
@@ -679,34 +674,49 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
             "image": "https://i.ibb.co/S1y8vZ4/achiverclublogo.jpg",
             "order_id": order.id,
 
-            "handler": function (response) {
-                alert("Payment Successful! Payment ID: " + response.razorpay_payment_id);
-                window.location.href = `success.html?payment_id=${response.razorpay_payment_id}&order_id=${response.razorpay_order_id}`;
+            "handler": async function (paymentResponse) {
+                try {
+                    await fetch('/.netlify/functions/save-registration', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name, email, whatsapp,
+                            payment_id: paymentResponse.razorpay_payment_id,
+                            order_id: paymentResponse.razorpay_order_id,
+                            amount: 199,
+                            status: 'success',
+                            failure_reason: null
+                        })
+                    });
+                } catch (error) {
+                    console.error('Error saving:', error);
+                }
+                window.location.href = `success.html?payment_id=${paymentResponse.razorpay_payment_id}`;
             },
 
-            "prefill": {
-                "name": name,
-                "email": email,
-                "contact": whatsapp
-            },
-
-            "theme": {
-                "color": "#FF6B6B"
-            },
+            "prefill": { "name": name, "email": email, "contact": whatsapp },
+            "theme": { "color": "#FF6B6B" },
 
             "modal": {
                 "ondismiss": function() {
+                    saveFailedAttempt(name, email, whatsapp, order.id, 'Payment modal closed by user');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Pay Now & Register';
                 }
             }
         };
 
-        var rzp1 = new Razorpay(options);
-
-        rzp1.on('payment.failed', function(response){
+        const rzp1 = new Razorpay(options);
+        
+        rzp1.on('payment.failed', async function (response) {
+            await saveFailedAttempt(
+                name, email, whatsapp,
+                response.error.metadata?.order_id || order.id,
+                response.error.description || 'Payment failed',
+                response.error.metadata?.payment_id || 'N/A'
+            );
             alert('Payment Failed: ' + response.error.description);
-            window.location.href = 'failed.html';
+            window.location.href = `failed.html?reason=${encodeURIComponent(response.error.description)}`;
         });
 
         rzp1.open();
@@ -714,14 +724,35 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
     } catch (error) {
         console.error('Error:', error);
         alert('Error creating order. Please try again.');
+        await saveFailedAttempt(name, email, whatsapp, 'N/A', 'Order creation failed');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Pay Now & Register';
     }
 });
+
+async function saveFailedAttempt(name, email, whatsapp, orderId, reason, paymentId = 'N/A') {
+    try {
+        await fetch('/.netlify/functions/save-registration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name, email, whatsapp,
+                payment_id: paymentId,
+                order_id: orderId,
+                amount: 199,
+                status: 'failed',
+                failure_reason: reason
+            })
+        });
+    } catch (error) {
+        console.error('Error saving failed attempt:', error);
+    }
+}
 </script>
 
 </body>
 </html>
+
 
 
 
